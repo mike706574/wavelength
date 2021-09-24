@@ -1,0 +1,28 @@
+pre.terminal {
+    background-color: black;
+    --background: black;
+    border-radius: 0.5em;
+    color: white;
+    display: inline-block;
+    font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace;
+    padding: 1em;
+    white-space: pre-wrap;
+    width: 100%;
+    word-wrap: break-word;
+    margin-bottom: 1em;
+}
+
+input[type=submit]:disabled,
+input[type=submit][disabled]{
+  color: #999;
+}
+
+input[type=number]:disabled,
+input[type=number][disabled]{
+  color: #999;
+}
+
+input[type=button]:disabled,
+input[type=button][disabled]{
+  color: #999;
+}
