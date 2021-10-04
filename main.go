@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -34,11 +35,32 @@ func main() {
 		c.HTML(http.StatusOK, "game.tmpl.html", nil)
 	})
 
-	router.GET("/ws", func(c *gin.Context) {
-		serveWs(hub, c.Writer, c.Request)
+	router.GET("/ws/games/:id", func(c *gin.Context) {
+		gameId := c.Param("id")
+		serveWs(hub, c.Writer, c.Request, gameId)
 	})
 
-	router.PUT("/api/game", func(c *gin.Context) {
+	router.GET("/api/games", func(c *gin.Context) {
+		receiveChan := make(chan map[string]*GameState)
+
+		request := &AllGameStatesRequest{
+			receive: receiveChan,
+		}
+
+		fmt.Println("here here")
+
+		hub.states <- request
+
+		fmt.Println("there")
+
+		val := <-receiveChan
+
+		c.JSON(200, val)
+	})
+
+	router.PUT("/api/games/:id", func(c *gin.Context) {
+		gameId := c.Param("id")
+
 		bytes, err := ioutil.ReadAll(c.Request.Body)
 
 		if err != nil {
@@ -51,17 +73,29 @@ func main() {
 			c.JSON(200, gin.H{"message": "bad"})
 		}
 
-		hub.event <- event
+		request := &GameEventRequest{
+			gameId: gameId,
+			event:  event,
+		}
+
+		hub.event <- request
 
 		c.JSON(200, gin.H{
 			"message": "cool",
 		})
 	})
 
-	router.GET("/api/game", func(c *gin.Context) {
-		receiveChan := make(chan GameState)
+	router.GET("/api/games/:id", func(c *gin.Context) {
+		gameId := c.Param("id")
 
-		hub.state <- receiveChan
+		receiveChan := make(chan *GameState)
+
+		request := &GameStateRequest{
+			gameId:  gameId,
+			receive: receiveChan,
+		}
+
+		hub.state <- request
 
 		val := <-receiveChan
 

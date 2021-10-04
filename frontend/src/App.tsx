@@ -23,6 +23,7 @@ function getCurrentTurn(game: GameState): TurnRecord {
 }
 
 interface GameProps {
+  gameId: string
   game: GameState
 }
 
@@ -35,7 +36,7 @@ function Term(props: {value: any}) {
 }
 
 function Game(props: GameProps) {
-  const {game} = props;
+  const {gameId, game} = props;
 
   const turn = getCurrentTurn(game);
 
@@ -47,29 +48,29 @@ function Game(props: GameProps) {
   return (
     <>
       <div className="row">
-        <GuessForm value={guess} disabled={guessed} />
+        <GuessForm gameId={gameId} value={guess} disabled={guessed} />
       </div>
       <div className="row">
-        <OverForm disabled={!guessed || choseOver} />
+        <OverForm gameId={gameId} over={over} disabled={!guessed || choseOver} />
       </div>
       <div className="row">
-        <EndTurnForm disabled={!choseOver} />
+        <EndTurnForm gameId={gameId} disabled={!choseOver} />
       </div>
       <Term value={game} />
     </>
   );
 }
 
-async function fetchGameState(): Promise<GameState> {
-  const resp = await fetch("/api/game");
+async function fetchGameState(gameId: string): Promise<GameState> {
+  const resp = await fetch(`/api/games/${gameId}`);
   return resp.json();
 }
 
-function connectWebsocket(handler: (msg: string) => void): Promise<WebSocket> {
+function connectWebsocket(gameId: string, handler: (msg: string) => void): Promise<WebSocket> {
   return new Promise((resolve, reject) => {
     const host = window.location.host;
 
-    const url = `ws://${host}/ws`;
+    const url = `ws://${host}/ws/games/${gameId}`;
 
     const ws = new WebSocket(url);
 
@@ -90,7 +91,13 @@ function connectWebsocket(handler: (msg: string) => void): Promise<WebSocket> {
   });
 }
 
-export default function App() {
+interface AppProps {
+  gameId: string
+}
+
+export default function App(props: AppProps) {
+  const {gameId} = props;
+
   const [game, setGame] = useState<GameState | null>(null);
   const [websocket, setWebsocket] = useState<WebSocket | null>(null);
 
@@ -102,8 +109,8 @@ export default function App() {
       setGame(newGame);
     };
 
-    const [game, websocket] = await Promise.all([fetchGameState(),
-                                                 connectWebsocket(handler)]);
+    const [game, websocket] = await Promise.all([fetchGameState(gameId),
+                                                 connectWebsocket(gameId, handler)]);
 
     setGame(game);
     setWebsocket(websocket);
@@ -121,7 +128,7 @@ export default function App() {
         <div className="column"
              style={{marginTop: "1em"}}>
           <h1>Wavelength</h1>
-          <Game game={game} />
+          <Game gameId={gameId} game={game} />
         </div>
       </div>
     </div>

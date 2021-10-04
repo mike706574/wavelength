@@ -5,26 +5,27 @@ import (
 	"fmt"
 )
 
-type Event struct {
+type Typed struct {
 	Type string `json:"type"`
 }
 
+type Event interface{}
+
+type StartGameEvent struct{}
+
 type MakeGuessEvent struct {
-	GameId string
-	Guess  float64 `json:"guess"`
+	Guess float64 `json:"guess"`
 }
 
 type ChooseOverEvent struct {
-	GameId string
-	Over   bool `json:"over"`
+	Over bool `json:"over"`
 }
 
-type EndTurnEvent struct {
-	GameId string
-}
+type EndTurnEvent struct{}
 
-func UnmarshalEvent(in []byte) (interface{}, error) {
-	e := &Event{}
+// Unmarshalling events
+func UnmarshalEvent(in []byte) (Event, error) {
+	e := &Typed{}
 
 	err := json.Unmarshal(in, &e)
 
@@ -36,9 +37,14 @@ func UnmarshalEvent(in []byte) (interface{}, error) {
 		return nil, nil
 	}
 
-	var event interface{}
+	var event Event
 
 	switch e.Type {
+
+	case "StartGame":
+		var startGameEvent StartGameEvent
+		json.Unmarshal(in, &startGameEvent)
+		event = startGameEvent
 
 	case "MakeGuess":
 		var makeGuessEvent MakeGuessEvent

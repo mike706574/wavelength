@@ -1,12 +1,13 @@
 import React, {useState} from "react";
 
 interface GuessFormProps {
+  gameId: string
   value: number | null
   disabled: boolean
 }
 
 export default function GuessForm(props: GuessFormProps) {
-  const {value, disabled} = props;
+  const {gameId, value, disabled} = props;
 
   const [guess, setGuess] = useState<number | "">(value ?? "");
 
@@ -19,7 +20,7 @@ export default function GuessForm(props: GuessFormProps) {
   const submit = () => {
     const event = {type: "MakeGuess", guess};
     const body = JSON.stringify(event);
-    fetch("/api/game", {method: "PUT", body})
+    fetch(`/api/games/${gameId}`, {method: "PUT", body})
       .then(() => console.log("Guess made."));
   };
 

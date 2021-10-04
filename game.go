@@ -119,7 +119,7 @@ func EndTurn(targetGen TargetGenerator, game *GameState) error {
 	}
 
 	if currentTurn.Over == nil {
-		return errors.New("no guess")
+		return errors.New("no over")
 	}
 
 	currentTeam := currentTurn.Team

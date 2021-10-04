@@ -1,18 +1,20 @@
 import React, {useState} from "react";
 
 interface OverFormProps {
+  over: boolean | null
+  gameId: string
   disabled: boolean
 }
 
 export default function OverForm(props: OverFormProps) {
-  const {disabled} = props;
+  const {gameId, disabled, over: value} = props;
 
-  const [over, setOver] = useState<boolean | null>(null);
+  const [over, setOver] = useState<boolean | null>(value);
 
   const submit = () => {
     const event = {type: "ChooseOver", over};
     const body = JSON.stringify(event);
-    fetch("/api/game", {method: "PUT", body})
+    fetch(`/api/games/${gameId}`, {method: "PUT", body})
       .then(() => console.log("Over chosen."));
   };
 

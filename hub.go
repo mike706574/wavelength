@@ -1,50 +1,77 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 )
 
 type Hub struct {
-	state      chan chan<- GameState
-	clients    map[*Client]bool
-	event      chan interface{}
+	state      chan *GameStateRequest
+	states     chan *AllGameStatesRequest
+	clients    map[string]map[*Client]bool
+	event      chan *GameEventRequest
 	register   chan *Client
 	unregister chan *Client
 }
 
+type AllGameStatesRequest struct {
+	receive chan<- map[string]*GameState
+}
+
+type GameStateRequest struct {
+	gameId  string
+	receive chan<- *GameState
+}
+
+type GameEventRequest struct {
+	gameId string
+	event  Event
+}
+
 func newHub() *Hub {
 	return &Hub{
-		state:      make(chan chan<- GameState),
-		event:      make(chan interface{}),
+		state:      make(chan *GameStateRequest),
+		states:     make(chan *AllGameStatesRequest),
+		event:      make(chan *GameEventRequest),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		clients:    make(map[string]map[*Client]bool),
 	}
 }
 
-func findGame(games *map[string]GameState, id string) (*GameState, error) {
+func findGame(games map[string]*GameState, id string) (*GameState, error) {
 	game, present := games[id]
 
 	if present {
-		return (game, nil)
+		return game, nil
 	}
 
-	return (nil, errors.New("game not found"))
+	return nil, errors.New("game not found")
 }
 
-func createGame(games *map[string]GameState, id string, targetGen TargetGenerator) error {
-	game, present := games[id]
+func createGame(games map[string]*GameState, id string, targetGen TargetGenerator) error {
+	_, present := games[id]
 
 	if present {
-		return (
+		return errors.New("game already found")
 	}
+
+	teams := []string{"a", "b"}
+
+	game := NewGame(targetGen, teams)
+
+	games[id] = &game
+
+	return nil
 }
 
-func handleEvent(games *map[string]GameState, targetGen TargetGenerator, event interface{}) error {
+func handleEvent(games map[string]*GameState, gameId string, targetGen TargetGenerator, event Event) error {
+	game, _ := findGame(games, gameId)
+
 	switch e := event.(type) {
 
 	case StartGameEvent:
-
+		return createGame(games, gameId, targetGen)
 
 	case MakeGuessEvent:
 		return MakeGuess(game, e.Guess)
@@ -60,34 +87,75 @@ func handleEvent(games *map[string]GameState, targetGen TargetGenerator, event i
 	}
 }
 
-func (h *Hub) run() {
-	targetGen := RandomTargetGenerator{}
-	teams := []string{"a", "b"}
-	games := make(map[string]GameState)
+func (hub *Hub) run() {
+	targetGen := &RandomTargetGenerator{}
+	games := make(map[string]*GameState)
 
 	for {
 		select {
-		case client := <-h.register:
-			h.clients[client] = true
+		case client := <-hub.register:
+			gameId := client.gameId
 
-		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
+			_, present := hub.clients[gameId]
+
+			if !present {
+				hub.clients[gameId] = make(map[*Client]bool)
 			}
 
-		case receive := <-h.state:
-			receive <- game
+			hub.clients[gameId][client] = true
 
-		case event := <-h.event:
-			handleEvent(&game, &targetGen, event)
-
-			for client := range h.clients {
-				select {
-				case client.send <- game:
-				default:
+		case client := <-hub.unregister:
+			gameId := client.gameId
+			if _, gamePresent := hub.clients[gameId]; gamePresent {
+				if _, clientPresent := hub.clients[gameId][client]; clientPresent {
+					delete(hub.clients[gameId], client)
 					close(client.send)
-					delete(h.clients, client)
+				}
+			}
+
+		case request := <-hub.states:
+			request.receive <- games
+
+		case request := <-hub.state:
+			gameId := request.gameId
+			game, err := findGame(games, gameId)
+
+			if err == nil {
+				request.receive <- game
+			} else {
+				err := createGame(games, gameId, targetGen)
+
+				if err != nil {
+					panic("what")
+				}
+
+				game, err := findGame(games, request.gameId)
+
+				if err != nil {
+					panic("whoa")
+				}
+
+				request.receive <- game
+			}
+
+		case request := <-hub.event:
+			gameId := request.gameId
+			event := request.event
+
+			err := handleEvent(games, gameId, targetGen, event)
+
+			if err == nil {
+				game, err := findGame(games, gameId)
+
+				if err == nil {
+					for client := range hub.clients[gameId] {
+						select {
+						case client.send <- *game:
+						default:
+							close(client.send)
+							delete(hub.clients[gameId], client)
+						}
+					}
 				}
 			}
 		}

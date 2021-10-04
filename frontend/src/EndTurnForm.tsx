@@ -1,16 +1,17 @@
 import React from "react";
 
 interface EndTurnFormProps {
+  gameId: string
   disabled: boolean
 }
 
 export default function EndTurnForm(props: EndTurnFormProps) {
-  const {disabled} = props;
+  const {gameId, disabled} = props;
 
   const submit = () => {
     const event = {type: "EndTurn"};
     const body = JSON.stringify(event);
-    fetch("/api/game", {method: "PUT", body})
+    fetch(`/api/games/${gameId}`, {method: "PUT", body})
       .then(() => console.log("Turn ended."));
   };
 
